@@ -9,14 +9,11 @@ import { useDark } from "./DarkModeContext";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
 import BottomNav from "./components/BottomNav";
-import WhatsAppFloat from "./components/WhatsAppFloat";
 
 import DashboardPage from "./pages/DashboardPage";
 import EntryFormPage from "./pages/EntryFormPage";
 import EntryViewPage from "./pages/EntryViewPage";
 import AIChatPage from "./pages/AIChatPage";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import InstallBanner from "./components/InstallBanner";
 
 const Loader = ({ t }) => (
   <div style={{
@@ -48,7 +45,6 @@ const SmartTicker = ({ lang, userName }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        // 1. Try announcement first
         const snap = await getDoc(doc(db, "config", "announcement"));
         if (snap.exists()) {
           const data = snap.data();
@@ -68,7 +64,6 @@ const SmartTicker = ({ lang, userName }) => {
         }
       } catch (e) { console.error(e); }
 
-      // 2. Fallback: welcome message (once per session)
       if (!sessionStorage.getItem("welcomeTicker")) {
         sessionStorage.setItem("welcomeTicker", "1");
         const name = userName || "Friend";
@@ -114,10 +109,8 @@ export default function App() {
   const { lang, setLang, t } = useLang();
   const { dark } = useDark();
   const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [currentPage, setCurrentPage] = useState("dashboard");
-
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -130,26 +123,21 @@ export default function App() {
             await setDoc(userRef, {
               uid: u.uid, email: u.email,
               name: u.displayName || "", photo: u.photoURL || "",
-              isAdmin: false, language: lang || "as",
+              language: lang || "as",
               createdAt: new Date().toISOString(),
             });
-            setIsAdmin(false);
             setCurrentPage("dashboard");
           } else {
             const data = userDoc.data();
             if (data.language) setLang(data.language);
-            const admin = data.isAdmin === true;
-            setIsAdmin(admin);
-            setCurrentPage(admin ? "admin" : "dashboard");
+            setCurrentPage("dashboard");
           }
         } catch (err) {
           console.error("Auth error:", err);
-          setIsAdmin(false);
           setCurrentPage("dashboard");
         }
       } else {
         setUser(null);
-        setIsAdmin(false);
       }
       setCheckingAuth(false);
     });
@@ -165,13 +153,8 @@ export default function App() {
       if (userDoc.exists()) {
         const data = userDoc.data();
         if (data.language) setLang(data.language);
-        const admin = data.isAdmin === true;
-        setIsAdmin(admin);
-        setCurrentPage(admin ? "admin" : "dashboard");
-      } else {
-        setIsAdmin(false);
-        setCurrentPage("dashboard");
       }
+      setCurrentPage("dashboard");
     } catch (err) { console.error("Login error:", err); }
   };
 
@@ -188,7 +171,6 @@ export default function App() {
   if (!user) return <Login onLogin={handleLogin} />;
 
   const renderPage = () => {
-    if (isAdmin) return <AdminDashboard user={user} />;
     switch (currentPage) {
       case "dashboard": return <DashboardPage user={user} />;
       case "entry":     return <EntryFormPage user={user} />;
@@ -200,12 +182,10 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI',sans-serif", background: dark ? "#0f172a" : "#f8faf8", minHeight: "100vh", color: dark ? "#f1f5f9" : "#1a1a1a" }}>
-      <TopBar user={user} currentPage={isAdmin ? "admin" : currentPage} isAdmin={isAdmin} onLangChange={handleLangChange} />
-      <InstallBanner />
-      {!isAdmin && <SmartTicker lang={lang} userName={user?.displayName || user?.email?.split("@")[0]} />}
+      <TopBar user={user} currentPage={currentPage} onLangChange={handleLangChange} />
+      <SmartTicker lang={lang} userName={user?.displayName || user?.email?.split("@")[0]} />
       <main>{renderPage()}</main>
-      {!isAdmin && <BottomNav currentPage={currentPage} setCurrentPage={setCurrentPage} />}
-      <WhatsAppFloat isAdmin={isAdmin} />
+      <BottomNav currentPage={currentPage} setCurrentPage={setCurrentPage} />
     </div>
   );
 }
